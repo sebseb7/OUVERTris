@@ -15,7 +15,13 @@
 #include "tetris.h"
 #include "sdl_draw/SDL_draw.h"
 
+
+//#define serial
+
+
+#ifdef serial
 static int serial_g3d2;
+#endif
 
 enum { ZOOM = 11 };
 
@@ -121,6 +127,7 @@ uint8_t esc(uint8_t color)
    return color;
 }
 
+#ifdef serial
 void write_frame(void)
 {
 			unsigned char c=0x23;
@@ -147,7 +154,7 @@ void write_frame(void)
             usleep(2000);
 
 }
-
+#endif
 
 
 int main(int argc, char *argv[]) {
@@ -155,6 +162,7 @@ int main(int argc, char *argv[]) {
 	tetris_load();
 	
 	
+#ifdef serial
 	struct termios config2;
 	memset(&config2, 0, sizeof(config2));
 
@@ -178,6 +186,7 @@ int main(int argc, char *argv[]) {
             c=0;
             write(serial_g3d2,&c,1);
             usleep(200);
+#endif
 
 	SDL_Surface* screen = SDL_SetVideoMode(
 		DISPLAY_WIDTH * ZOOM,
@@ -288,7 +297,9 @@ int main(int argc, char *argv[]) {
 					Draw_FillCircle(screen, ZOOM * x + ZOOM / 2,
 						ZOOM * y + ZOOM / 2, ZOOM * 0.45, COLORS[display[y][x]]);
 			SDL_Flip(screen);
+#ifdef serial
 			write_frame();
+#endif
 		}
 		if(!fast)
 			SDL_Delay(20);
