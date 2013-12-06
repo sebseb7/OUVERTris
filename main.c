@@ -3,12 +3,21 @@
 #include <unistd.h>
 #include <assert.h>
 #include <SDL/SDL.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <errno.h>
+//#if defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
+#include <sys/ioctl.h>
+#include <IOKit/serial/ioss.h>
+//#endif
 
 #include "main.h"
 #include "tetris.h"
 #include "sdl_draw/SDL_draw.h"
 
-enum { ZOOM = 14 };
+static int serial_g3d2;
+
+enum { ZOOM = 11 };
 
 typedef struct {
 	int nr;
@@ -98,11 +107,77 @@ void pixel(int x, int y, unsigned char color) {
 	}
 }
 
+uint8_t esc(uint8_t color)
+{
+   if(color == 0x64)
+   	return 3;
+   if(color == 0x23)
+   	return 1;
+   if(color == 0x42)
+   	return 2;
+   if(color == 0x66)
+   	return 4;
+   
+   return color;
+}
+
+void write_frame(void)
+{
+			unsigned char c=0x23;
+			write(serial_g3d2,&c,1);
+
+
+	static unsigned char buf[DISPLAY_HEIGHT*DISPLAY_WIDTH];
+
+	uint32_t pixel=0;
+
+	for(uint8_t y = 0;y<DISPLAY_HEIGHT;y++)
+	{
+		for(uint8_t x = 0;x<DISPLAY_WIDTH/2;x++)
+		{
+			uint8_t y2=y;
+			if(y2>=32){y2-=32;} else{ y2+=32;};
+			buf[pixel] = display[y2][x*2]*16+display[y2][x*2+1];
+			pixel++;
+		}
+	}
+		
+
+            write(serial_g3d2,&buf,2304);
+            usleep(2000);
+
+}
+
 
 
 int main(int argc, char *argv[]) {
 	srand(SDL_GetTicks());
 	tetris_load();
+	
+	
+	struct termios config2;
+	memset(&config2, 0, sizeof(config2));
+
+	if ( (serial_g3d2=open("/dev/cu.usbserial-A100DEF4", O_RDWR)) == -1)
+	{
+		printf( "Error %d opening device)\n", errno );
+	}
+	tcgetattr(serial_g3d2, &config2);
+    speed_t speed = 500000;
+    if ( ioctl( serial_g3d2,  IOSSIOSPEED, &speed ) == -1 )
+    {
+        printf( "Error %d calling ioctl( ..., IOSSIOSPEED, ... )\n", errno );
+    }
+			
+			unsigned char c=66;
+			write(serial_g3d2,&c,1);
+            c=0;
+            write(serial_g3d2,&c,1);
+            c=0;
+            write(serial_g3d2,&c,1);
+            c=0;
+            write(serial_g3d2,&c,1);
+            usleep(200);
 
 	SDL_Surface* screen = SDL_SetVideoMode(
 		DISPLAY_WIDTH * ZOOM,
@@ -213,6 +288,7 @@ int main(int argc, char *argv[]) {
 					Draw_FillCircle(screen, ZOOM * x + ZOOM / 2,
 						ZOOM * y + ZOOM / 2, ZOOM * 0.45, COLORS[display[y][x]]);
 			SDL_Flip(screen);
+			write_frame();
 		}
 		if(!fast)
 			SDL_Delay(20);
