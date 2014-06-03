@@ -13,6 +13,7 @@
 
 #include "main.h"
 #include "tetris.h"
+#include "grid.h"
 #include "sdl_draw/SDL_draw.h"
 
 
@@ -26,7 +27,6 @@ static int serial_g3d2;
 enum { ZOOM = 11 };
 
 typedef struct {
-	int nr;
 	int state;
 	int buttons[8];
 	char name[32];
@@ -41,13 +41,6 @@ static int				rerender = 1;
 static void set_button(int input_nr, int button, int state) {
 
 	Player* p = &players[input_nr];
-	if(!p->state) {
-		p->nr = add_player();	// TODO: player nick etc.
-		if(p->nr >= 0) {
-			p->state = 1;
-			input_map[p->nr] = input_nr;
-		}
-	}
 	p->buttons[button] = state;
 }
 
@@ -59,7 +52,17 @@ int button_down(unsigned int nr, unsigned int button) {
 	return 0;
 }
 int is_occupied(unsigned int nr) {
-	return 0;
+
+
+
+	if(players[nr].state)
+	{
+		return 0;
+	}
+	else
+	{
+		return 1;
+	}
 }
 void push_lines(unsigned int nr, unsigned int lines) {
 }
@@ -218,13 +221,10 @@ int main(int argc, char *argv[]) {
 
 	int running = 1;
 
-	for(int i = 0; i < 2;i++)
+	for(int i = 0; i <= 2;i++)
 	{
-		Player* p = &players[i];
-		if(!p->state) {
-			p->nr = add_player();	// TODO: player nick etc.
-			p->state = 1;
-		}
+		add_player();	// TODO: player nick etc.
+		players[i].state=1;
 	}
 
 
@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
 			case SDL_KEYUP:
 			case SDL_KEYDOWN:
 
-				key = map_key(ev.key.keysym.sym);
+		/*		key = map_key(ev.key.keysym.sym);
 				if(key > 0) {
 					set_button(input_nr, key, ev.type == SDL_KEYDOWN);
 					break;
@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
 					fast ^= ev.type == SDL_KEYDOWN;
 					break;
 				}
-
+		*/
 				if(ev.type == SDL_KEYUP) break;
 
 				switch(ev.key.keysym.sym) {
@@ -258,28 +258,18 @@ int main(int argc, char *argv[]) {
 					break;
 
 				case SDLK_1:
-					input_nr = 0;
+					remove_player(0);
+					if(players[0].state)
+					{
+						players[0].state = 0;
+					}
+					else
+					{
+						players[0].state = 1;
+					}
 					break;
 
-				case SDLK_2:
-					input_nr = 1;
-					break;
 
-				case SDLK_3:
-					input_nr = 2;
-					break;
-
-				case SDLK_4:
-					input_nr = 3;
-					break;
-
-				case SDLK_5:
-					input_nr = 4;
-					break;
-
-				case SDLK_6:
-					input_nr = 5;
-					break;
 
 
 				default: break;
