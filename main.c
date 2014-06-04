@@ -33,7 +33,6 @@ typedef struct {
 } Player;
 
 static Player			players[3];
-static int				input_map[3];
 static unsigned char	display[DISPLAY_HEIGHT][DISPLAY_WIDTH];
 static int				rerender = 1;
 
@@ -45,8 +44,9 @@ static int				rerender = 1;
 }
 */
 int button_down(unsigned int nr, unsigned int button) {
-	Player* p = &players[input_map[nr]];
-	if(p->state) {
+	Player* p = &players[nr];
+
+	if(! p->state) {
 		return p->buttons[button];
 	}
 	return 0;
@@ -68,20 +68,6 @@ void push_lines(unsigned int nr, unsigned int lines) {
 }
 
 
-/*static int map_key(unsigned int sdl_key) {
-	switch(sdl_key) {
-	case SDLK_RIGHT:	return BUTTON_RIGHT;
-	case SDLK_LEFT:		return BUTTON_LEFT;
-	case SDLK_UP:		return BUTTON_UP;
-	case SDLK_DOWN:		return BUTTON_DOWN;
-	case SDLK_x:		return BUTTON_A;
-	case SDLK_c:		return BUTTON_B;
-	case SDLK_RETURN:	return BUTTON_START;
-	case SDLK_LSHIFT:
-	case SDLK_RSHIFT:	return BUTTON_SELECT;
-	default:			return -1;
-	}
-}*/
 
 
 
@@ -233,6 +219,67 @@ int main(int argc, char *argv[]) {
 			// handle button codes
 			//
 			printf("received data %i %i %i\n",data[0],data[1],data[2]);
+
+
+			for(int i = 0; i <= 2; i++)
+			{
+
+			if((data[i]&16)==16)
+			{	
+				if(players[i].state)
+				{
+					reset_player(i);
+					players[i].state = 0;
+				}
+
+				if((data[i]&2)==2)
+				{
+					players[i].buttons[2]=1;
+				}
+				else
+				{
+					players[i].buttons[2]=0;
+				}
+				
+				if((data[i]&4)==4)
+				{
+					players[i].buttons[3]=1;
+				}
+				else
+				{
+					players[i].buttons[3]=0;
+				}
+				
+				if((data[i]&8)==8)
+				{
+					players[i].buttons[1]=1;
+				}
+				else
+				{
+					players[i].buttons[1]=0;
+				}
+				
+				if((data[i]&1)==1)
+				{
+					players[i].buttons[4]=1;
+				}
+				else
+				{
+					players[i].buttons[4]=0;
+				}
+			}
+			else
+			{
+				printf("player off\n");
+				if(! players[i].state)
+				{
+					reset_player(i);
+					players[i].state = 1;
+				}
+			}
+
+			}
+
 		}
 
 
@@ -240,50 +287,50 @@ int main(int argc, char *argv[]) {
 		while(SDL_PollEvent(&ev)) {
 
 			switch(ev.type) {
-			case SDL_QUIT:
-				running = 0;
-				break;
-			case SDL_KEYUP:
-			case SDL_KEYDOWN:
-
-		/*		key = map_key(ev.key.keysym.sym);
-				if(key > 0) {
-					set_button(input_nr, key, ev.type == SDL_KEYDOWN);
-					break;
-				}
-				if(ev.key.keysym.sym == SDLK_SPACE) {
-					fast ^= ev.type == SDL_KEYDOWN;
-					break;
-				}
-		*/
-				if(ev.type == SDL_KEYUP) break;
-
-				switch(ev.key.keysym.sym) {
-				case SDLK_ESCAPE:
+				case SDL_QUIT:
 					running = 0;
 					break;
+				case SDL_KEYUP:
+				case SDL_KEYDOWN:
 
-				case SDLK_1:
-					reset_player(0);
-					if(players[0].state)
-					{
-						players[0].state = 0;
+					/*		key = map_key(ev.key.keysym.sym);
+							if(key > 0) {
+							set_button(input_nr, key, ev.type == SDL_KEYDOWN);
+							break;
+							}
+							if(ev.key.keysym.sym == SDLK_SPACE) {
+							fast ^= ev.type == SDL_KEYDOWN;
+							break;
+							}
+							*/
+					if(ev.type == SDL_KEYUP) break;
+
+					switch(ev.key.keysym.sym) {
+						case SDLK_ESCAPE:
+							running = 0;
+							break;
+
+						case SDLK_1:
+							reset_player(0);
+							if(players[0].state)
+							{
+								players[0].state = 0;
+							}
+							else
+							{
+								players[0].state = 1;
+							}
+							break;
+						case SDLK_2:
+							tetris_suspend();
+							break;
+
+
+
+
+						default: break;
 					}
-					else
-					{
-						players[0].state = 1;
-					}
-					break;
-				case SDLK_2:
-					tetris_suspend();
-					break;
-
-
-
-
 				default: break;
-				}
-			default: break;
 			}
 		}
 
@@ -294,7 +341,7 @@ int main(int argc, char *argv[]) {
 			for(int x = 0; x < DISPLAY_WIDTH; x++)
 				for(int y = 0; y < DISPLAY_HEIGHT; y++)
 					Draw_FillCircle(screen, ZOOM * x + ZOOM / 2,
-						ZOOM * y + ZOOM / 2, ZOOM * 0.45, COLORS[display[y][x]]);
+							ZOOM * y + ZOOM / 2, ZOOM * 0.45, COLORS[display[y][x]]);
 			SDL_Flip(screen);
 #ifdef serial
 			write_frame();
@@ -302,7 +349,7 @@ int main(int argc, char *argv[]) {
 		}
 		SDL_Delay(20);
 	}
-	
+
 	SDL_Quit();
 	return 0;
 }
