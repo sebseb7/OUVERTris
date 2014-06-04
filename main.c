@@ -231,6 +231,8 @@ int main(int argc, char *argv[]) {
 		if(data != NULL)
 		{
 			// handle button codes
+			//
+			printf("received data %i %i %i\n",data[0],data[1],data[2]);
 		}
 
 
