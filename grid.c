@@ -384,6 +384,9 @@ static void update_grid_gameover(Grid* grid) {
 }
 
 
+void suspend_grid(Grid* grid) {
+	grid->state = STATE_FREE;
+}
 void init_grid(Grid* grid, int nr) {
 	grid->nr = nr;
 	grid->ticks_per_drop = 20;
@@ -404,14 +407,6 @@ void init_grid(Grid* grid, int nr) {
 			set_frame_buffer(grid->nr * 12 + x, y, 0);
 		}
 	}
-}
-
-int activate_grid(Grid* grid) {
-	if(grid->state == STATE_FREE) {
-		grid->state = STATE_NORMAL;
-		return 1;
-	}
-	return 0;
 }
 
 

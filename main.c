@@ -15,7 +15,7 @@
 #include "tetris.h"
 #include "grid.h"
 #include "sdl_draw/SDL_draw.h"
-
+#include "tcp.h"
 
 //#define serial
 
@@ -38,12 +38,12 @@ static unsigned char	display[DISPLAY_HEIGHT][DISPLAY_WIDTH];
 static int				rerender = 1;
 
 
-static void set_button(int input_nr, int button, int state) {
+/*static void set_button(int input_nr, int button, int state) {
 
 	Player* p = &players[input_nr];
 	p->buttons[button] = state;
 }
-
+*/
 int button_down(unsigned int nr, unsigned int button) {
 	Player* p = &players[input_map[nr]];
 	if(p->state) {
@@ -68,7 +68,7 @@ void push_lines(unsigned int nr, unsigned int lines) {
 }
 
 
-static int map_key(unsigned int sdl_key) {
+/*static int map_key(unsigned int sdl_key) {
 	switch(sdl_key) {
 	case SDLK_RIGHT:	return BUTTON_RIGHT;
 	case SDLK_LEFT:		return BUTTON_LEFT;
@@ -81,7 +81,7 @@ static int map_key(unsigned int sdl_key) {
 	case SDLK_RSHIFT:	return BUTTON_SELECT;
 	default:			return -1;
 	}
-}
+}*/
 
 
 
@@ -163,6 +163,12 @@ void write_frame(void)
 int main(int argc, char *argv[]) {
 	srand(SDL_GetTicks());
 	tetris_load();
+	for(int i = 0; i <= 2;i++)
+	{
+		players[i].state=1;
+	}
+
+	tcpinit();
 	
 	
 #ifdef serial
@@ -215,20 +221,18 @@ int main(int argc, char *argv[]) {
 		SDL_MapRGB(screen->format, 0x00,0xff,0x00)
 	};
 
-	int input_nr = 5;
-	int key;
-	int fast = 0;
-
 	int running = 1;
 
-	for(int i = 0; i <= 2;i++)
-	{
-		add_player();	// TODO: player nick etc.
-		players[i].state=1;
-	}
-
-
 	while(running) {
+
+		int *data;
+		data=tcphandle();
+
+		if(data != NULL)
+		{
+			// handle button codes
+		}
+
 
 		SDL_Event ev;
 		while(SDL_PollEvent(&ev)) {
@@ -258,7 +262,7 @@ int main(int argc, char *argv[]) {
 					break;
 
 				case SDLK_1:
-					remove_player(0);
+					reset_player(0);
 					if(players[0].state)
 					{
 						players[0].state = 0;
@@ -267,6 +271,9 @@ int main(int argc, char *argv[]) {
 					{
 						players[0].state = 1;
 					}
+					break;
+				case SDLK_2:
+					tetris_suspend();
 					break;
 
 
@@ -291,8 +298,7 @@ int main(int argc, char *argv[]) {
 			write_frame();
 #endif
 		}
-		if(!fast)
-			SDL_Delay(20);
+		SDL_Delay(20);
 	}
 	
 	SDL_Quit();

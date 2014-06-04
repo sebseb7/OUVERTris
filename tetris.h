@@ -3,8 +3,7 @@
 
 void tetris_load();
 void tetris_update();
-
-int add_player();
-void remove_player(int nr);
+void tetris_suspend();
+void reset_player(int nr);
 
 #endif

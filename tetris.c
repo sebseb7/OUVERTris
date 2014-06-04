@@ -17,6 +17,11 @@ void tetris_load() {
 	for(i = 0; i < MAX_PLAYERS; i++) init_grid(&grids[i], i);
 }
 
+void tetris_suspend() {
+	int i;
+	for(i = 0; i < MAX_PLAYERS; i++) suspend_grid(&grids[i]);
+}
+
 void tetris_update() {
 	int i;
 	for(i = 0; i < MAX_PLAYERS; i++) {
@@ -25,16 +30,7 @@ void tetris_update() {
 	}
 }
 
-int add_player() {
-	int i;
-	for(i = 0; i < MAX_PLAYERS; i++) {
-		if(activate_grid(&grids[i])) return i;
-	}
-
-	return -1;
-}
-
-void remove_player(int nr) {
+void reset_player(int nr) {
 	init_grid(&grids[nr], nr);
 }
 
