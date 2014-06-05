@@ -30,14 +30,12 @@ void tcpinit(void)
 		/*just exit lol!*/
 		exit(1);
 	}
-	printf("Server-socket() is OK...\n");
 	/*"address already in use" error message */
 	if(setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
 	{
 		perror("Server-setsockopt() error lol!");
 		exit(1);
 	}
-	printf("Server-setsockopt() is OK...\n");
 
 	/* bind */
 	serveraddr.sin_family = AF_INET;
@@ -50,7 +48,6 @@ void tcpinit(void)
 		perror("Server-bind() error lol!");
 		exit(1);
 	}
-	printf("Server-bind() is OK...\n");
 
 	/* listen */
 	if(listen(listener, 10) == -1)
@@ -58,7 +55,6 @@ void tcpinit(void)
 		perror("Server-listen() error lol!");
 		exit(1);
 	}
-	printf("Server-listen() is OK...\n");
 
 	/* add the listener to the master set */
 	FD_SET(listener, &master);

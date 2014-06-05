@@ -2,19 +2,24 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
+#define sdl_support
+#ifdef sdl_support
 #include <SDL/SDL.h>
+#include "sdl_draw/SDL_draw.h"
+#endif
+
+#ifdef serial
 #include <termios.h>
 #include <fcntl.h>
 #include <errno.h>
 //#if defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
 #include <sys/ioctl.h>
 #include <IOKit/serial/ioss.h>
-//#endif
+#endif
 
 #include "main.h"
 #include "tetris.h"
 #include "grid.h"
-#include "sdl_draw/SDL_draw.h"
 #include "tcp.h"
 
 //#define serial
@@ -36,13 +41,6 @@ static Player			players[3];
 static unsigned char	display[DISPLAY_HEIGHT][DISPLAY_WIDTH];
 static int				rerender = 1;
 
-
-/*static void set_button(int input_nr, int button, int state) {
-
-	Player* p = &players[input_nr];
-	p->buttons[button] = state;
-}
-*/
 int button_down(unsigned int nr, unsigned int button) {
 	Player* p = &players[nr];
 
@@ -52,8 +50,6 @@ int button_down(unsigned int nr, unsigned int button) {
 	return 0;
 }
 int is_occupied(unsigned int nr) {
-
-
 
 	if(players[nr].state)
 	{
@@ -102,6 +98,7 @@ void pixel(int x, int y, unsigned char color) {
 	}
 }
 
+/*
 uint8_t esc(uint8_t color)
 {
    if(color == 0x64)
@@ -114,7 +111,7 @@ uint8_t esc(uint8_t color)
    	return 4;
    
    return color;
-}
+}*/
 
 #ifdef serial
 void write_frame(void)
@@ -147,7 +144,9 @@ void write_frame(void)
 
 
 int main(int argc, char *argv[]) {
+#ifdef sdl_support
 	srand(SDL_GetTicks());
+#endif
 	tetris_load();
 	for(int i = 0; i <= 2;i++)
 	{
@@ -183,6 +182,7 @@ int main(int argc, char *argv[]) {
             usleep(200);
 #endif
 
+#ifdef sdl_support
 	SDL_Surface* screen = SDL_SetVideoMode(
 		DISPLAY_WIDTH * ZOOM,
 		DISPLAY_HEIGHT * ZOOM,
@@ -206,6 +206,7 @@ int main(int argc, char *argv[]) {
 		SDL_MapRGB(screen->format, 0x00,0xf0,0x00),
 		SDL_MapRGB(screen->format, 0x00,0xff,0x00)
 	};
+#endif
 
 	int running = 1;
 
@@ -224,65 +225,66 @@ int main(int argc, char *argv[]) {
 			for(int i = 0; i <= 2; i++)
 			{
 
-			if((data[i]&16)==16)
-			{	
-				if(players[i].state)
-				{
-					reset_player(i);
-					players[i].state = 0;
-				}
+				if((data[i]&16)==16)
+				{	
+					if(players[i].state)
+					{
+						reset_player(i);
+						players[i].state = 0;
+					}
 
-				if((data[i]&2)==2)
-				{
-					players[i].buttons[2]=1;
+					if((data[i]&2)==2)
+					{
+						players[i].buttons[2]=1;
+					}
+					else
+					{
+						players[i].buttons[2]=0;
+					}
+
+					if((data[i]&4)==4)
+					{
+						players[i].buttons[3]=1;
+					}
+					else
+					{
+						players[i].buttons[3]=0;
+					}
+
+					if((data[i]&8)==8)
+					{
+						players[i].buttons[1]=1;
+					}
+					else
+					{
+						players[i].buttons[1]=0;
+					}
+
+					if((data[i]&1)==1)
+					{
+						players[i].buttons[4]=1;
+					}
+					else
+					{
+						players[i].buttons[4]=0;
+					}
 				}
 				else
 				{
-					players[i].buttons[2]=0;
+					printf("player off\n");
+					if(! players[i].state)
+					{
+						reset_player(i);
+						players[i].state = 1;
+					}
 				}
-				
-				if((data[i]&4)==4)
-				{
-					players[i].buttons[3]=1;
-				}
-				else
-				{
-					players[i].buttons[3]=0;
-				}
-				
-				if((data[i]&8)==8)
-				{
-					players[i].buttons[1]=1;
-				}
-				else
-				{
-					players[i].buttons[1]=0;
-				}
-				
-				if((data[i]&1)==1)
-				{
-					players[i].buttons[4]=1;
-				}
-				else
-				{
-					players[i].buttons[4]=0;
-				}
-			}
-			else
-			{
-				printf("player off\n");
-				if(! players[i].state)
-				{
-					reset_player(i);
-					players[i].state = 1;
-				}
-			}
 
 			}
 
 		}
 
 
+#ifdef sdl_support
 		SDL_Event ev;
 		while(SDL_PollEvent(&ev)) {
 
@@ -333,24 +335,32 @@ int main(int argc, char *argv[]) {
 				default: break;
 			}
 		}
-
+#endif
 		tetris_update();
 
 		if(rerender) {
 			rerender = 0;
+#ifdef sdl_support
 			for(int x = 0; x < DISPLAY_WIDTH; x++)
 				for(int y = 0; y < DISPLAY_HEIGHT; y++)
 					Draw_FillCircle(screen, ZOOM * x + ZOOM / 2,
 							ZOOM * y + ZOOM / 2, ZOOM * 0.45, COLORS[display[y][x]]);
 			SDL_Flip(screen);
+#endif
 #ifdef serial
 			write_frame();
 #endif
 		}
+#ifdef sdl_support
 		SDL_Delay(20);
+#else
+		usleep(20000);
+#endif
 	}
 
+#ifdef sdl_support
 	SDL_Quit();
+#endif
 	return 0;
 }
 
