@@ -6,7 +6,7 @@ SRC+= sdl_draw/SDL_draw.c
 SRC+= pixelfonts/5x3/font.c
 SRC+= $(wildcard libs/*.c)
 
-FLAGS= --std=gnu99 -Wall -funsigned-char -Wundef -Wsign-compare -pedantic  -Wstrict-prototypes
+FLAGS= --std=gnu99 -Wall -funsigned-char -Wundef -Wsign-compare -pedantic  -Wstrict-prototypes -lftdi1
 
 
 ifeq ($(UNAME), Darwin)

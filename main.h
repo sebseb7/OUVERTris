@@ -17,11 +17,13 @@ enum {
 	BUTTON_SELECT,
 };
 
+void player_gameover(int nr,int lines);
 int button_down(unsigned int nr, unsigned int button);
 void push_lines(unsigned int nr, unsigned int lines);
 int is_occupied(unsigned int nr);
 unsigned int rand_int(unsigned int limit);
 void pixel(int x, int y, unsigned char color);
 void set_frame_buffer(int x, int y, unsigned char color);
+void set_frame_buffer_hd(int x, int y, unsigned char color);
 
 #endif

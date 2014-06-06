@@ -2,7 +2,7 @@
 #define TCP_H_
 
 
-int * tcphandle(void);
+char * tcphandle(void);
 void tcpinit(void);
 
 

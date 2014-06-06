@@ -63,7 +63,7 @@ void tcpinit(void)
 
 }
 
-int * tcphandle(void)
+char * tcphandle(void)
 {
 	static fd_set read_fds;
 	FD_ZERO(&read_fds);
@@ -134,13 +134,36 @@ int * tcphandle(void)
 					if(send(i, "ok\n", 3, 0) == -1)
 						perror("send() error lol!");
 				
-					static int  r[3];
+					static char  r[36];
 
-					if(nbytes > 2)
+					//printf("%i\n",nbytes);
+
+					if(nbytes == 3)
 					{
-						r[0]=buf[0];
-						r[1]=buf[1];
-						r[2]=buf[2];
+						r[0]=0;
+						r[1]=buf[0];
+						r[2]=buf[1];
+						r[3]=buf[2];
+					}
+					else if(nbytes > 5)
+					{
+						r[0]=255;
+						for(int m =1;m<=35;m++)
+						{
+							if(nbytes >= m)
+							{
+								r[m]=buf[m-1];
+							}
+							else
+							{
+								r[m]=0;
+							}
+						}
+						
+					}
+					else
+					{
+						return NULL;
 					}
 					
 					return r;

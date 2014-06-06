@@ -2,39 +2,35 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
-#define sdl_support
+#include <sys/time.h>
+//#define sdl_support
 #ifdef sdl_support
 #include <SDL/SDL.h>
 #include "sdl_draw/SDL_draw.h"
 #endif
 
+#define serial
+
 #ifdef serial
-#include <termios.h>
-#include <fcntl.h>
-#include <errno.h>
-//#if defined(MAC_OS_X_VERSION_10_4) && (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_4)
-#include <sys/ioctl.h>
-#include <IOKit/serial/ioss.h>
+#include "libftdi1/ftdi.h"
+static struct ftdi_context *ftdi;
 #endif
 
 #include "main.h"
 #include "tetris.h"
 #include "grid.h"
 #include "tcp.h"
+#include "libs/text.h"
 
-//#define serial
 
 
-#ifdef serial
-static int serial_g3d2;
-#endif
 
 enum { ZOOM = 11 };
 
 typedef struct {
 	int state;
 	int buttons[8];
-	char name[32];
+	char name[30];
 } Player;
 
 static Player			players[3];
@@ -63,13 +59,61 @@ int is_occupied(unsigned int nr) {
 void push_lines(unsigned int nr, unsigned int lines) {
 }
 
+void display_highscore()
+{
+		
+		FILE *hs;
 
+		hs = popen ("cat highscore  | sort -n -r", "r");
+		if (!hs)
+		{
+			fprintf (stderr, "Could not read highscore\n");
+		}
+		else
+		{
+			int lines;
+			char name[256];
+			
+			int i = 0;
+
+			print_hd_5x3_at (4,0,"SEKTOR EVOLUTION",15);
+			print_hd_5x3_at (0,7,"La Fiesta Grande V",10);
+			print_hd_5x3_at (18,14,"HIGHSCORE",15);
+
+			while ((fscanf( hs, "%i : %s\n", &lines, &name[0] ) == 2)&&(i++ < 7)) 
+			{	
+
+				print_hd_unsigned_5x3_at (1,17+((i)*6),lines,3, ' ',15);
+				print_hd_5x3_at (15,17+( (i)*6), name,10);
+			}
+		}
+
+
+		pclose (hs);
+}
+
+void player_gameover(int nr,int lines)
+{
+	if(lines == 0) return;
+	
+	FILE *fp;
+	fp = fopen("highscore", "a");
+	if (fp == NULL) {
+		printf("error opening highscore file\n");
+	}
+	else
+	{
+		printf("gameover %i %i\n",nr,lines);
+		fprintf(fp,"%i :  %s\n",lines,players[nr].name);
+		fclose(fp);
+	}
+}
 
 
 
 void set_frame_buffer(int x, int y, unsigned char color) {
-	assert(x < DISPLAY_WIDTH);
-	assert(y < DISPLAY_HEIGHT);
+	assert(x < DISPLAY_WIDTH/2);
+	assert(y < DISPLAY_HEIGHT/2);
 	assert(color < 16);
 	if(display[y*2][x*2] != color) {
 		rerender = 1;
@@ -88,6 +132,16 @@ void set_frame_buffer(int x, int y, unsigned char color) {
 		display[y*2+1][x*2] = color;
 	}
 }
+
+void set_frame_buffer_hd(int x, int y, unsigned char color) {
+	assert(x < DISPLAY_WIDTH);
+	assert(y < DISPLAY_HEIGHT);
+	assert(color < 16);
+	if(display[y][x] != color) {
+		rerender = 1;
+		display[y][x] = color;
+	}
+}
 void pixel(int x, int y, unsigned char color) {
 	assert(x < DISPLAY_WIDTH);
 	assert(y < DISPLAY_HEIGHT);
@@ -99,26 +153,29 @@ void pixel(int x, int y, unsigned char color) {
 }
 
 /*
-uint8_t esc(uint8_t color)
-{
+   uint8_t esc(uint8_t color)
+   {
    if(color == 0x64)
-   	return 3;
+   return 3;
    if(color == 0x23)
-   	return 1;
+   return 1;
    if(color == 0x42)
-   	return 2;
+   return 2;
    if(color == 0x66)
-   	return 4;
-   
+   return 4;
+
    return color;
-}*/
+   }*/
 
 #ifdef serial
 void write_frame(void)
 {
-			unsigned char c=0x23;
-			write(serial_g3d2,&c,1);
-
+	unsigned char c=0x23;
+	int ret = ftdi_write_data(ftdi, &c,1);
+	if (ret < 0)
+	{
+		fprintf(stderr,"write failed , error %d (%s)\n",ret, ftdi_get_error_string(ftdi));
+	}
 
 	static unsigned char buf[DISPLAY_HEIGHT*DISPLAY_WIDTH];
 
@@ -130,17 +187,34 @@ void write_frame(void)
 		{
 			uint8_t y2=y;
 			if(y2>=32){y2-=32;} else{ y2+=32;};
-			buf[pixel] = display[y2][x*2]*16+display[y2][x*2+1];
+			buf[pixel] = display[y2][x*2+1]*16+display[y2][x*2];
 			pixel++;
 		}
 	}
-		
 
-            write(serial_g3d2,&buf,2304);
-            usleep(2000);
+
+		
+	ret = ftdi_write_data(ftdi, buf, 2304);
+	if (ret < 0)
+	{
+		fprintf(stderr,"write failed , error %d (%s)\n",ret, ftdi_get_error_string(ftdi));
+	}
+	usleep(2000);
 
 }
 #endif
+	
+	
+void clear_display()
+{
+	for(uint8_t y = 0;y<DISPLAY_HEIGHT;y++)
+	{
+		for(uint8_t x = 0;x<DISPLAY_WIDTH;x++)
+		{
+			display[y][x]=0;
+		}
+	}
+}
 
 
 int main(int argc, char *argv[]) {
@@ -154,39 +228,69 @@ int main(int argc, char *argv[]) {
 	}
 
 	tcpinit();
-	
-	
-#ifdef serial
-	struct termios config2;
-	memset(&config2, 0, sizeof(config2));
 
-	if ( (serial_g3d2=open("/dev/cu.usbserial-A100DEF4", O_RDWR)) == -1)
+
+#ifdef serial
+
+	
+	
+	
+	int ret;
+	struct ftdi_version_info version;
+	if ((ftdi = ftdi_new()) == 0)
 	{
-		printf( "Error %d opening device)\n", errno );
+		fprintf(stderr, "ftdi_new failed\n");
+		return EXIT_FAILURE;
 	}
-	tcgetattr(serial_g3d2, &config2);
-    speed_t speed = 500000;
-    if ( ioctl( serial_g3d2,  IOSSIOSPEED, &speed ) == -1 )
-    {
-        printf( "Error %d calling ioctl( ..., IOSSIOSPEED, ... )\n", errno );
-    }
-			
-			unsigned char c=66;
-			write(serial_g3d2,&c,1);
-            c=0;
-            write(serial_g3d2,&c,1);
-            c=0;
-            write(serial_g3d2,&c,1);
-            c=0;
-            write(serial_g3d2,&c,1);
-            usleep(200);
+	version = ftdi_get_library_version();
+	printf("Initialized libftdi %s (major: %d, minor: %d, micro: %d, snapshot ver: %s)\n",
+			version.version_str, version.major, version.minor, version.micro,
+			version.snapshot_str);
+	if ((ret = ftdi_usb_open(ftdi, 0x0403, 0x6001)) < 0)
+	{
+		fprintf(stderr, "unable to open ftdi device: %d (%s)\n", ret, ftdi_get_error_string(ftdi));
+		ftdi_free(ftdi);
+		return EXIT_FAILURE;
+	}
+	// Read out FTDIChip-ID of R type chips
+	if (ftdi->type == TYPE_R)
+	{
+		unsigned int chipid;
+		printf("ftdi_read_chipid: %d\n", ftdi_read_chipid(ftdi, &chipid));
+		printf("FTDI chipid: %X\n", chipid);
+	}
+	ret = ftdi_set_line_property(ftdi, 8, STOP_BIT_1, NONE);
+	if (ret < 0)
+	{
+		fprintf(stderr, "unable to set line parameters: %d (%s)\n", ret, ftdi_get_error_string(ftdi));
+		exit(-1);
+	}
+	ret = ftdi_set_baudrate(ftdi, 500000);
+	if (ret < 0)
+	{
+		fprintf(stderr, "unable to set baudrate: %d (%s)\n", ret, ftdi_get_error_string(ftdi));
+		exit(-1);
+	}
+	
+		
+	unsigned char c=66;
+	ret = ftdi_write_data(ftdi, &c,1);
+	c=0;
+	ret = ftdi_write_data(ftdi, &c,1);
+	ret = ftdi_write_data(ftdi, &c,1);
+	ret = ftdi_write_data(ftdi, &c,1);
+	if (ret < 0)
+	{
+		fprintf(stderr,"write failed , error %d (%s)\n",ret, ftdi_get_error_string(ftdi));
+	}
+	usleep(200);
 #endif
 
 #ifdef sdl_support
 	SDL_Surface* screen = SDL_SetVideoMode(
-		DISPLAY_WIDTH * ZOOM,
-		DISPLAY_HEIGHT * ZOOM,
-		32, SDL_SWSURFACE | SDL_DOUBLEBUF);
+			DISPLAY_WIDTH * ZOOM,
+			DISPLAY_HEIGHT * ZOOM,
+			32, SDL_SWSURFACE | SDL_DOUBLEBUF);
 
 	const unsigned int COLORS[] = {
 		SDL_MapRGB(screen->format, 0x00,0x10,0x00),
@@ -209,73 +313,105 @@ int main(int argc, char *argv[]) {
 #endif
 
 	int running = 1;
+	struct timeval last_player_time,current_time;
+		
+	gettimeofday(&last_player_time, NULL);
+				
+	int playercount = 0;
 
 	while(running) {
 
-		int *data;
+		char *data;
 		data=tcphandle();
 
 		if(data != NULL)
 		{
 			// handle button codes
 			//
-			printf("received data %i %i %i\n",data[0],data[1],data[2]);
 
 
-			for(int i = 0; i <= 2; i++)
+			if(data[0]==255)
 			{
+				unsigned int nr = data[5]-49;
 
-				if((data[i]&16)==16)
-				{	
-					if(players[i].state)
-					{
-						reset_player(i);
-						players[i].state = 0;
-					}
-
-					if((data[i]&2)==2)
-					{
-						players[i].buttons[2]=1;
-					}
-					else
-					{
-						players[i].buttons[2]=0;
-					}
-
-					if((data[i]&4)==4)
-					{
-						players[i].buttons[3]=1;
-					}
-					else
-					{
-						players[i].buttons[3]=0;
-					}
-
-					if((data[i]&8)==8)
-					{
-						players[i].buttons[1]=1;
-					}
-					else
-					{
-						players[i].buttons[1]=0;
-					}
-
-					if((data[i]&1)==1)
-					{
-						players[i].buttons[4]=1;
-					}
-					else
-					{
-						players[i].buttons[4]=0;
-					}
-				}
-				else
+				if(nr < 3)
 				{
-					printf("player off\n");
-					if(! players[i].state)
+
+					for(int i = 0;i<29;i++)
 					{
-						reset_player(i);
-						players[i].state = 1;
+						players[nr].name[i]=(char)data[i+6];
+						if(data[i+6] == 64)
+						{
+							players[nr].name[i]=0;
+							i=30;
+						}
+					}
+					//printf("received name %i %s\n",nr,players[nr].name);
+				}
+			}
+			if(data[0]==0)
+			{
+				//printf("received button data %i %i %i\n",data[1],data[2],data[3]);
+
+				playercount=0;
+
+				for(int i = 0; i <= 2; i++)
+				{
+
+
+					if((data[i+1]&16)==16)
+					{	
+						playercount++;
+						if(players[i].state)
+						{
+							reset_player(i);
+							players[i].state = 0;
+						}
+
+						if((data[i+1]&2)==2)
+						{
+							players[i].buttons[2]=1;
+						}
+						else
+						{
+							players[i].buttons[2]=0;
+						}
+
+						if((data[i+1]&4)==4)
+						{
+							players[i].buttons[3]=1;
+						}
+						else
+						{
+							players[i].buttons[3]=0;
+						}
+
+						if((data[i+1]&8)==8)
+						{
+							players[i].buttons[1]=1;
+						}
+						else
+						{
+							players[i].buttons[1]=0;
+						}
+
+						if((data[i+1]&1)==1)
+						{
+							players[i].buttons[4]=1;
+						}
+						else
+						{
+							players[i].buttons[4]=0;
+						}
+					}
+					else
+					{
+						if(! players[i].state)
+						{
+							//printf("player off\n");
+							reset_player(i);
+							players[i].state = 1;
+						}
 					}
 				}
 
@@ -322,9 +458,11 @@ int main(int argc, char *argv[]) {
 							{
 								players[0].state = 1;
 							}
+							display_highscore();
 							break;
 						case SDLK_2:
-							tetris_suspend();
+							display_highscore();
+							//tetris_suspend();
 							break;
 
 
@@ -336,7 +474,30 @@ int main(int argc, char *argv[]) {
 			}
 		}
 #endif
-		tetris_update();
+
+		if(playercount != 0)
+		{
+			gettimeofday(&last_player_time, NULL);
+		}
+		else
+		{
+			gettimeofday(&current_time, NULL);
+		}
+	
+		if((current_time.tv_sec-last_player_time.tv_sec) > 70)
+		{
+			clear_display();
+			gettimeofday(&last_player_time, NULL);
+		}
+		else if((current_time.tv_sec-last_player_time.tv_sec) > 6)
+		{
+			clear_display();
+			display_highscore();
+		}
+		else
+		{
+			tetris_update();
+		}
 
 		if(rerender) {
 			rerender = 0;
@@ -352,7 +513,7 @@ int main(int argc, char *argv[]) {
 #endif
 		}
 #ifdef sdl_support
-		SDL_Delay(20);
+		SDL_Delay(10);
 #else
 		usleep(20000);
 #endif
