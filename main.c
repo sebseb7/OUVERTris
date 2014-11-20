@@ -3,13 +3,13 @@
 #include <unistd.h>
 #include <assert.h>
 #include <sys/time.h>
-//#define sdl_support
+#define sdl_support
 #ifdef sdl_support
 #include <SDL/SDL.h>
 #include "sdl_draw/SDL_draw.h"
 #endif
 
-#define serial
+//#define serial
 
 #ifdef serial
 #include "libftdi1/ftdi.h"
@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
 		players[i].state=1;
 	}
 
-	tcpinit();
+	//tcpinit();
 
 
 #ifdef serial
@@ -322,9 +322,9 @@ int main(int argc, char *argv[]) {
 	while(running) {
 
 		char *data;
-		data=tcphandle();
+		//data=tcphandle();
 
-		if(data != NULL)
+		/*if(data != NULL)
 		{
 			// handle button codes
 			//
@@ -418,6 +418,7 @@ int main(int argc, char *argv[]) {
 			}
 
 		}
+		*/
 
 
 #ifdef sdl_support
@@ -491,8 +492,8 @@ int main(int argc, char *argv[]) {
 		}
 		else if((current_time.tv_sec-last_player_time.tv_sec) > 6)
 		{
-			clear_display();
-			display_highscore();
+			//clear_display();
+			//display_highscore();
 		}
 		else
 		{
